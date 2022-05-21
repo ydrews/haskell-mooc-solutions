@@ -232,8 +232,20 @@ set (StepR : steps) x (Node a tree1 tree2) = Node a tree1 (set steps x tree2)
 --                            (Node 1 Empty Empty))
 --                    (Node 5 Empty Empty))                     ==>  Just [StepL,StepR]
 
+
 search :: Eq a => a -> Tree a -> Maybe [Step]
 search val Empty = Nothing
 search val (Node x lTree rTree)
   | val == x = Just []
   | otherwise = fmap (StepL:) (search val lTree) <|> fmap (StepR:) (search val rTree)
+
+
+search' :: Eq a => a -> Tree a -> Maybe [Step]
+search' val Empty = Nothing
+search' val (Node x lTree rTree)
+  | val == x = Just []
+  | otherwise = case search' val lTree of
+    Just xs -> Just (StepL : xs)
+    Nothing -> case search' val rTree of
+      Just xs -> Just (StepR : xs)
+      Nothing -> Nothing
