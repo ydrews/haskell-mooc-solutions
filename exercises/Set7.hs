@@ -26,11 +26,11 @@ data Velocity = Velocity Double
 
 -- velocity computes a velocity given a distance and a time
 velocity :: Distance -> Time -> Velocity
-velocity = todo
+velocity (Distance d) (Time t) = Velocity (d / t)
 
 -- travel computes a distance given a velocity and a time
 travel :: Velocity -> Time -> Distance
-travel = todo
+travel (Velocity v) (Time t) = Distance (t * v)
 
 ------------------------------------------------------------------------------
 -- Ex 2: let's implement a simple Set datatype. A Set is a list of
@@ -49,15 +49,17 @@ data Set a = Set [a]
 
 -- emptySet is a set with no elements
 emptySet :: Set a
-emptySet = todo
+emptySet = Set []
 
 -- member tests if an element is in a set
 member :: Eq a => a -> Set a -> Bool
-member = todo
+member a (Set as) = a `elem` as
 
 -- add a member to a set
-add :: a -> Set a -> Set a
-add = todo
+add :: (Eq a, Ord a) => a -> Set a -> Set a
+add a s@(Set as)
+  | member a s = s
+  | otherwise = Set (sort (a:as))
 
 ------------------------------------------------------------------------------
 -- Ex 3: a state machine for baking a cake. The type Event represents
@@ -92,10 +94,29 @@ add = todo
 data Event = AddEggs | AddFlour | AddSugar | Mix | Bake
   deriving (Eq,Show)
 
-data State = Start | Error | Finished
+data State = Start
+  | AddedEggs
+  | AddedFlour
+  | AddedSugar
+  | AddedFlourSugar
+  | ProgressMix
+  | ProgressBake
+  | Error
+  | Finished
   deriving (Eq,Show)
 
-step = todo
+step :: State -> Event -> State
+step Error _ = Error
+step Finished _ = Finished
+step Start AddEggs = AddedEggs
+step AddedEggs AddFlour = AddedFlour
+step AddedEggs AddSugar = AddedSugar
+step AddedSugar AddFlour = AddedFlourSugar
+step AddedFlour AddSugar = AddedFlourSugar
+step AddedFlourSugar Mix = ProgressBake
+step ProgressMix Mix = ProgressBake
+step ProgressBake Bake = Finished
+step _ _ = Error
 
 -- do not edit this
 bake :: [Event] -> State
@@ -115,7 +136,8 @@ bake events = go Start events
 --   average (1.0 :| [2.0,3.0])  ==>  2.0
 
 average :: Fractional a => NonEmpty a -> a
-average = todo
+average (x :| []) = x
+average (x :| xs) = sum (x : xs) / fromIntegral (length xs + 1)
 
 ------------------------------------------------------------------------------
 -- Ex 5: reverse a NonEmpty list.
@@ -123,7 +145,8 @@ average = todo
 -- PS. The Data.List.NonEmpty type has been imported for you
 
 reverseNonEmpty :: NonEmpty a -> NonEmpty a
-reverseNonEmpty = todo
+reverseNonEmpty (x :| []) = x :| []
+reverseNonEmpty (x :| xs) = last (x : xs) :| tail (reverse (x : xs))
 
 ------------------------------------------------------------------------------
 -- Ex 6: implement Semigroup instances for the Distance, Time and
@@ -135,6 +158,15 @@ reverseNonEmpty = todo
 -- velocity (Distance 50 <> Distance 10) (Time 1 <> Time 2)
 --    ==> Velocity 20
 
+instance Semigroup Distance where
+  (<>) (Distance a) (Distance b) = Distance (a + b)
+
+instance Semigroup Time where
+  (<>) (Time a) (Time b) = Time (a + b)
+
+instance Semigroup Velocity where
+  (<>) (Velocity a) (Velocity b) = Velocity (a + b)
+
 
 ------------------------------------------------------------------------------
 -- Ex 7: implement a Monoid instance for the Set type from exercise 2.
@@ -143,6 +175,14 @@ reverseNonEmpty = todo
 -- What's the right definition for mempty?
 --
 -- What are the class constraints for the instances?
+instance (Eq a, Ord a) => Semigroup (Set a) where
+  (<>) (Set xs) (Set []) = Set $ sort xs
+  (<>) (Set xs) (Set (y:ys))
+    | member y (Set xs) = (<>) (Set xs) (Set ys)
+    | otherwise = (<>) (Set (y : xs)) (Set ys)
+
+instance (Eq a, Ord a) => Monoid (Set a) where
+  mempty = Set []
 
 
 ------------------------------------------------------------------------------
@@ -166,28 +206,42 @@ reverseNonEmpty = todo
 
 data Operation1 = Add1 Int Int
                 | Subtract1 Int Int
+                | Multiply1 Int Int
   deriving Show
 
 compute1 :: Operation1 -> Int
 compute1 (Add1 i j) = i+j
 compute1 (Subtract1 i j) = i-j
+compute1 (Multiply1 i j) = i * j
 
 show1 :: Operation1 -> String
-show1 = todo
+show1 (Add1 i j) = show i ++ "+" ++ show j
+show1 (Subtract1 i j) = show i ++ "-" ++ show j
+show1 (Multiply1 i j) = show i ++ "*" ++ show j
 
 data Add2 = Add2 Int Int
   deriving Show
 data Subtract2 = Subtract2 Int Int
   deriving Show
 
+data Multiply2 = Multiply2 Int Int
+  deriving Show
+
 class Operation2 op where
   compute2 :: op -> Int
+  show2 :: op -> String
 
 instance Operation2 Add2 where
   compute2 (Add2 i j) = i+j
+  show2 (Add2 i j) = show i ++ "+" ++ show j
 
 instance Operation2 Subtract2 where
   compute2 (Subtract2 i j) = i-j
+  show2 (Subtract2 i j) = show i ++ "-" ++ show j
+
+instance Operation2 Multiply2 where
+  compute2 (Multiply2 i j) = i*j
+  show2 (Multiply2 i j) = show i ++ "*" ++ show j
 
 
 ------------------------------------------------------------------------------
@@ -217,7 +271,17 @@ data PasswordRequirement =
   deriving Show
 
 passwordAllowed :: String -> PasswordRequirement -> Bool
-passwordAllowed = todo
+passwordAllowed pass (MinimumLength n) = length pass >= n
+passwordAllowed pass (ContainsSome []) = False
+passwordAllowed pass (ContainsSome (x : xs))
+  | x `elem` pass = True
+  | otherwise = passwordAllowed pass (ContainsSome xs)
+passwordAllowed pass (DoesNotContain []) = True
+passwordAllowed pass (DoesNotContain (x:xs))
+  | x `elem` pass = False
+  | otherwise = passwordAllowed pass (DoesNotContain xs)
+passwordAllowed pass (And x y) = passwordAllowed pass x && passwordAllowed pass y
+passwordAllowed pass (Or x y) = passwordAllowed pass x || passwordAllowed pass y
 
 ------------------------------------------------------------------------------
 -- Ex 10: a DSL for simple arithmetic expressions with addition and
@@ -239,17 +303,38 @@ passwordAllowed = todo
 --     ==> "(3*(1+1))"
 --
 
-data Arithmetic = Todo
+data Arithmetic = Literal Integer | Operation String Arithmetic Arithmetic
   deriving Show
 
 literal :: Integer -> Arithmetic
-literal = todo
+literal a = Literal a
 
 operation :: String -> Arithmetic -> Arithmetic -> Arithmetic
-operation = todo
+operation op a b = Operation op a b
 
 evaluate :: Arithmetic -> Integer
-evaluate = todo
+evaluate (Operation "+" (Literal a) (Literal b)) = a + b
+evaluate (Operation "*" (Literal a) (Literal b)) = a * b
+
+evaluate (Operation "+" (Literal a) (Operation op x y)) = a + evaluate (Operation op x y)
+evaluate (Operation "+" (Operation op x y) (Literal a)) = evaluate (Operation op x y) + a
+
+evaluate (Operation "*" (Literal a) (Operation op x y)) = a * evaluate (Operation op x y)
+evaluate (Operation "*" (Operation op x y) (Literal a)) = evaluate (Operation op x y) * a
+
+evaluate (Operation "+" (Operation op x y) (Operation op1 x1 y1)) = evaluate (Operation op x y) + evaluate (Operation op1 x1 y1)
+evaluate (Operation "*" (Operation op x y) (Operation op1 x1 y1)) = evaluate (Operation op x y) * evaluate (Operation op1 x1 y1)
+
+evaluate (Operation _ (Literal a) _) = a
+evaluate (Operation _ _ (Literal a)) = a
+evaluate (Literal a) = a
+evaluate _ = 0
 
 render :: Arithmetic -> String
-render = todo
+render (Literal a) = show a
+render (Operation op (Literal a) (Literal b)) = "(" ++ show a ++ op ++ show b ++ ")"
+
+render (Operation op1 (Literal a) (Operation op x y)) = "(" ++ show a ++ op1 ++ render (Operation op x y) ++ ")"
+render (Operation op1 (Operation op x y) (Literal a)) = "(" ++ render (Operation op x y) ++ op1 ++ show a ++ ")"
+
+render (Operation op1 (Operation op x y) (Operation op2 x2 y2)) = "(" ++ render (Operation op x y) ++ op1 ++ render (Operation op2 x2 y2) ++ ")"
