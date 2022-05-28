@@ -3,6 +3,7 @@ module Set9b where
 import Mooc.Todo
 
 import Data.List
+import Data.Function (on)
 
 --------------------------------------------------------------------------------
 -- Ex 1: In this exercise set, we'll solve the N Queens problem step by step.
@@ -47,10 +48,10 @@ type Col   = Int
 type Coord = (Row, Col)
 
 nextRow :: Coord -> Coord
-nextRow (i,j) = todo
+nextRow (i,j) = (i + 1, 1)
 
 nextCol :: Coord -> Coord
-nextCol (i,j) = todo
+nextCol (i,j) = (i, j + 1)
 
 --------------------------------------------------------------------------------
 -- Ex 2: Implement the function prettyPrint that, given the size of
@@ -103,7 +104,22 @@ nextCol (i,j) = todo
 type Size = Int
 
 prettyPrint :: Size -> [Coord] -> String
-prettyPrint = todo
+prettyPrint s qs = foldr (\r acc -> r ++ "\n" ++ acc) [] (buildRows s (buildBoard s) qs)
+  where
+    buildBoard ln = concat ["." | _ <- [1 .. ln * ln]]
+
+    setQ :: Int -> String -> String
+    setQ pos ls = take (pos - 1) ls ++ 'Q' : drop pos ls
+
+    split :: Int -> String -> [String]
+    split n [] = []
+    split n ls = take n ls : split n (drop n ls)
+
+    getSetQIndex qi qj ln = (qi * ln) + qj - ln
+
+    buildRows :: Int -> String -> [Coord] -> [String]
+    buildRows ln board [] = split ln board
+    buildRows ln board ((qi, qj) : items) = buildRows ln (setQ (getSetQIndex qi qj ln) board) items
 
 --------------------------------------------------------------------------------
 -- Ex 3: The task in this exercise is to define the relations sameRow, sameCol,
@@ -127,16 +143,16 @@ prettyPrint = todo
 --   sameAntidiag (500,5) (5,500) ==> True
 
 sameRow :: Coord -> Coord -> Bool
-sameRow (i,j) (k,l) = todo
+sameRow (i,j) (k,l) = i == k
 
 sameCol :: Coord -> Coord -> Bool
-sameCol (i,j) (k,l) = todo
+sameCol (i,j) (k,l) = j == l
 
 sameDiag :: Coord -> Coord -> Bool
-sameDiag (i,j) (k,l) = todo
+sameDiag (i,j) (k,l) = j - i == l - k
 
 sameAntidiag :: Coord -> Coord -> Bool
-sameAntidiag (i,j) (k,l) = todo
+sameAntidiag (i,j) (k,l) = k - i == j - l
 
 --------------------------------------------------------------------------------
 -- Ex 4: In chess, a queen may capture another piece in the same row, column,
@@ -191,7 +207,10 @@ type Candidate = Coord
 type Stack     = [Coord]
 
 danger :: Candidate -> Stack -> Bool
-danger = todo
+danger _ [] = False
+danger c (st : sts) = isDanger c st || danger c sts
+  where
+    isDanger c s = sameRow c s || sameCol c s || sameDiag c s || sameAntidiag c s
 
 --------------------------------------------------------------------------------
 -- Ex 5: In this exercise, the task is to write a modified version of
@@ -226,7 +245,17 @@ danger = todo
 -- solution to this version. Any working solution is okay in this exercise.)
 
 prettyPrint2 :: Size -> Stack -> String
-prettyPrint2 = todo
+prettyPrint2 n = printVal n (1,1)
+  where
+    printVal n c q
+      | n == fst c && n == snd c = setVal c q ++ "\n"
+      | n /= fst c && n == snd c = setVal c q ++ "\n" ++ printVal n (nextRow c) q
+      | n /= snd c = setVal c q ++ printVal n (nextCol c) q
+      | otherwise = ""
+    setVal c q
+      | c `elem` q = "Q"
+      | danger c q = "#"
+      | otherwise = "."
 
 --------------------------------------------------------------------------------
 -- Ex 6: Now that we can check if a piece can be safely placed into a square in
@@ -271,7 +300,12 @@ prettyPrint2 = todo
 --     Q#######
 
 fixFirst :: Size -> Stack -> Maybe Stack
-fixFirst n s = todo
+fixFirst _ [] = Nothing
+fixFirst _ [x] = Nothing
+fixFirst n (x : xs)
+  | not (danger x xs) && snd x <= n = Just (x:xs)
+  | danger x xs && snd x < n = fixFirst n (nextCol x : xs)
+  | otherwise = Nothing
 
 --------------------------------------------------------------------------------
 -- Ex 7: We need two helper functions for stack management.
@@ -293,10 +327,14 @@ fixFirst n s = todo
 -- Hint: Remember nextRow and nextCol? Use them!
 
 continue :: Stack -> Stack
-continue s = todo
+continue [] = [(1,1)]
+continue stacks@(s:sts) = nextRow s : stacks
 
 backtrack :: Stack -> Stack
-backtrack s = todo
+backtrack [] = []
+backtrack [x] = []
+backtrack [x,y] = [nextCol y]
+backtrack (x : y : ys) = nextCol y : ys
 
 --------------------------------------------------------------------------------
 -- Ex 8: Let's take a step. Our algorithm solves the problem (in a
@@ -365,7 +403,10 @@ backtrack s = todo
 --     step 8 [(6,1),(5,4),(4,2),(3,5),(2,3),(1,1)] ==> [(5,5),(4,2),(3,5),(2,3),(1,1)]
 
 step :: Size -> Stack -> Stack
-step = todo
+step n [x] = continue [x]
+step n s = case fixFirst n s of
+  Nothing -> backtrack s
+  Just a -> continue a
 
 --------------------------------------------------------------------------------
 -- Ex 9: Let's solve our puzzle! The function finish takes a partial
@@ -380,7 +421,9 @@ step = todo
 -- solve the n queens problem.
 
 finish :: Size -> Stack -> Stack
-finish = todo
+finish n s
+  | length (step n s) == (n + 1) = tail $ step n s
+  | otherwise = finish n (step n s)
 
 solve :: Size -> Stack
 solve n = finish n [(1,1)]

@@ -15,6 +15,7 @@ import Data.List
 import Data.Ord
 
 import Mooc.Todo
+import Data.Function (on)
 
 ------------------------------------------------------------------------------
 -- Ex 1: Implement a function workload that takes in the number of
@@ -26,7 +27,10 @@ import Mooc.Todo
 -- Otherwise return "Ok."
 
 workload :: Int -> Int -> String
-workload nExercises hoursPerExercise = todo
+workload nExercises hoursPerExercise
+  | nExercises * hoursPerExercise > 100 = "Holy moly!"
+  | nExercises * hoursPerExercise < 10 = "Piece of cake!"
+  | otherwise = "Ok."
 
 ------------------------------------------------------------------------------
 -- Ex 2: Implement the function echo that builds a string like this:
@@ -39,7 +43,8 @@ workload nExercises hoursPerExercise = todo
 -- Hint: use recursion
 
 echo :: String -> String
-echo = todo
+echo [] = ""
+echo w@(x:xs) = w ++ ", " ++ echo xs
 
 ------------------------------------------------------------------------------
 -- Ex 3: A country issues some banknotes. The banknotes have a serial
@@ -52,7 +57,10 @@ echo = todo
 -- are valid.
 
 countValid :: [String] -> Int
-countValid = todo
+countValid [] = 0
+countValid (x:xs)
+  | (x !! 2 == x !! 4) || (x !! 3 == x !! 5) = 1 + countValid xs
+  | otherwise = countValid xs
 
 ------------------------------------------------------------------------------
 -- Ex 4: Find the first element that repeats two or more times _in a
@@ -64,7 +72,11 @@ countValid = todo
 --   repeated [1,2,1,2,3,3] ==> Just 3
 
 repeated :: Eq a => [a] -> Maybe a
-repeated = todo
+repeated [] = Nothing
+repeated [x] = Nothing
+repeated (x:y:xs)
+  | x == y = Just x
+  | otherwise = repeated (y:xs)
 
 ------------------------------------------------------------------------------
 -- Ex 5: A laboratory has been collecting measurements. Some of the
@@ -86,7 +98,14 @@ repeated = todo
 --     ==> Left "no data"
 
 sumSuccess :: [Either String Int] -> Either String Int
-sumSuccess = todo
+sumSuccess xs = if null rights then Left "no data" else Right sumRights
+  where
+    foldrHelper :: Either String Int -> [Int] -> [Int]
+    foldrHelper x acc = case x of
+      Right a -> a:acc
+      Left _ -> acc
+    rights = foldr foldrHelper [] xs
+    sumRights = sum rights
 
 ------------------------------------------------------------------------------
 -- Ex 6: A combination lock can either be open or closed. The lock
@@ -108,30 +127,37 @@ sumSuccess = todo
 --   isOpen (open "0000" (lock (changeCode "0000" (open "1234" aLock)))) ==> True
 --   isOpen (open "1234" (lock (changeCode "0000" (open "1234" aLock)))) ==> False
 
-data Lock = LockUndefined
+data Lock = Locked String | Unlocked String
   deriving Show
 
 -- aLock should be a locked lock with the code "1234"
 aLock :: Lock
-aLock = todo
+aLock = Locked "1234"
 
 -- isOpen returns True if the lock is open
 isOpen :: Lock -> Bool
-isOpen = todo
+isOpen (Locked _) = False
+isOpen (Unlocked _) = True
 
 -- open tries to open the lock with the given code. If the code is
 -- wrong, nothing happens.
 open :: String -> Lock -> Lock
-open = todo
+open _ (Unlocked x) = Unlocked x
+open [] (Locked x) = Locked x
+open code (Locked x)
+  | code == x = Unlocked x
+  | otherwise = Locked x
 
 -- lock closes a lock. If the lock is already closed, nothing happens.
 lock :: Lock -> Lock
-lock = todo
+lock (Locked x) = Locked x
+lock (Unlocked x) = Locked x
 
 -- changeCode changes the code of an open lock. If the lock is closed,
 -- nothing happens.
 changeCode :: String -> Lock -> Lock
-changeCode = todo
+changeCode code (Locked x) = Locked x
+changeCode code (Unlocked x) = Unlocked code
 
 ------------------------------------------------------------------------------
 -- Ex 7: Here's a type Text that just wraps a String. Implement an Eq
@@ -146,8 +172,18 @@ changeCode = todo
 --   Text "abc"  == Text "abcd"     ==> False
 --   Text "a bc" == Text "ab  d\n"  ==> False
 
+trim :: Text -> String
+trim (Text []) = []
+trim (Text (x : xs))
+  | isSpace x = trim (Text xs)
+  | otherwise = x : trim (Text xs)
+
 data Text = Text String
   deriving Show
+
+instance Eq Text where
+  (==) a b = trim a == trim b
+
 
 
 ------------------------------------------------------------------------------
@@ -182,7 +218,10 @@ data Text = Text String
 --       ==> [("a",1),("b",2)]
 
 compose :: (Eq a, Eq b) => [(a,b)] -> [(b,c)] -> [(a,c)]
-compose = todo
+compose [] zs = []
+compose ((x,y):xs) zs = case lookup y zs of
+  (Just a) -> (x, a) : compose xs zs
+  Nothing -> compose xs zs
 
 ------------------------------------------------------------------------------
 -- Ex 9: Reorder a list using a list of indices.
@@ -226,4 +265,12 @@ multiply :: Permutation -> Permutation -> Permutation
 multiply p q = map (\i -> p !! (q !! i)) (identity (length p))
 
 permute :: Permutation -> [a] -> [a]
-permute = todo
+permute ps ls = map snd (sortBy (compare `on` fst) (map mapHelper lsTuple))
+  where
+    lsTuple = zip (identity (length ls)) ls
+    psTuple = zip (identity (length ls)) ps
+
+    mapHelper :: (Int,a) -> (Int,a)
+    mapHelper (i, v) = case lookup i psTuple of
+      Nothing -> (0,v)
+      Just n -> (n,v)
